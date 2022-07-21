@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+
+pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -120,21 +121,21 @@ contract ERC20 is Context, IERC20, IERC20Metadata  {
         _afterTokenTransfer(address(0), account, amount);
     }
 
-    function _burn(address account, uint256 amount) internal vurtual {
-      require(account != address(0), "ERC20: burn from zero address");
+    function _burn(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: burn from the zero address");
 
-      _beforeTokenTransfer(account, address(0), amount);
+        _beforeTokenTransfer(account, address(0), amount);
 
-      uint256 accountBalance = _balances[account];
-      require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
-      unchecked {
-          _balances[account] = accountBalance - amount;
-      }
-      _totalSupply -= amount;
+        uint256 accountBalance = _balances[account];
+        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        unchecked {
+            _balances[account] = accountBalance - amount;
+        }
+        _totalSupply -= amount;
 
-      emit Transfer(account, address(0), amount);
+        emit Transfer(account, address(0), amount);
 
-      _afterTokenTransfer(account, address(0), amount);
+        _afterTokenTransfer(account, address(0), amount);
     }
 
     function _approve(
@@ -164,7 +165,9 @@ contract ERC20 is Context, IERC20, IERC20Metadata  {
 
 
 contract QaqadoRankToken is ERC20 {
+
     address owner;
+    address admin;
 
     constructor() ERC20("QAQADO RANK TOKEN", "QQDR") {
         owner = msg.sender;
@@ -175,12 +178,25 @@ contract QaqadoRankToken is ERC20 {
         _;
     }
 
-    function mint(address account, uint256 amount) public virtual returns (bool) {
+    modifier onlyStaff () {
+        require((msg.sender == admin || msg.sender == owner), "You are not owner/admin");
+        _;
+    }
+
+    function assignAdmin(address _admin) public onlyOwner {
+        admin = _admin;
+    }
+
+    function deleteAdmin() public onlyOwner {
+        delete admin;
+    }
+
+    function mint(address account, uint256 amount) public onlyStaff virtual returns (bool) {
         _mint(account, amount);
         return true;
     }
 
-    function burn(address account, uint256 amount) public virtual returns (bool) {
+    function burn(address account, uint256 amount) public onlyStaff virtual returns (bool) {
         _burn(account, amount);
         return true;
     }
