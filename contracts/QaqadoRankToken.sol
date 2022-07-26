@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -201,10 +201,14 @@ contract QaqadoRankToken is ERC20 {
         return true;
     }
 
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public onlyStaff virtual override returns (bool) {
         require(recipient != address(this), "Token: transfer to the contract address");
         _transfer(_msgSender(), recipient, amount);
         return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public onlyStaff virtual override returns (bool) {
+        transferFrom(sender, recipient, amount);
     }
 
     function totalSupply() public view virtual override returns (uint256) {

@@ -95,25 +95,26 @@ contract Ballot {
     using Strings for uint256;
     IERC20 private Token;
 
-    mapping(address => uint) public forMint;
-    mapping(address => uint) public forBurn;
+    mapping(uint => mapping(address => uint)) public forMint;
+    mapping(uint => mapping(address => uint)) public forBurn;
 
-    mapping(bool => uint) public votes;
-    mapping(address => bool) public wasVoted;
+    mapping(uint => mapping(bool => uint)) public votes;
+    mapping(uint => mapping(address => bool)) public wasVoted;
 
-    address[] private addressesForMint;
-    address[] private addressesForBurn;
-    address[] private votersAddresses;
+    mapping(uint => address[]) private addressesForMint;
+    mapping(uint => address[]) private addressesForBurn;
+    mapping(uint => address[]) private votersAddresses;
 
+    mapping(uint => address) public votingInitiator;
 
-    address public votingInitiator;
     address public owner;
+    uint public ballotNumber;
 
-    uint public totalVoters;
-    uint public startTime;
-    uint public endTime;
+    mapping(uint => uint) public totalVoters;
+    mapping(uint => uint) public startTime;
+    mapping(uint => uint) public endTime;
 
-    enum State { Created, Voting, Ended}
+    enum State { Created, Voting, Ended }
     State public state;
 
     modifier inState(State _state) {
@@ -121,8 +122,8 @@ contract Ballot {
         _;
     }
 
-    modifier _wasVoted() {
-        require(wasVoted[msg.sender] == false, "You already voted");
+    modifier isFirstVote() {
+        require(wasVoted[getBallotNumber()][msg.sender] == false, "You already voted");
         _;
     }
 
@@ -132,7 +133,7 @@ contract Ballot {
     }
 
     modifier onlyStaff() {
-        require(msg.sender == owner || msg.sender == votingInitiator, "You are not owner/staff");
+        require(msg.sender == owner || msg.sender == votingInitiator[getBallotNumber()], "You are not owner/staff");
         _;
     }
 
@@ -143,51 +144,12 @@ contract Ballot {
     }
 
     function assignVotingInitiator(address account) public onlyOwner {
-        votingInitiator = account;
+        votingInitiator[getBallotNumber()] = account;
     }
 
-    function startAndSetupBallot
-    (
-        address[] memory _addressForMint, uint[] memory _amountForMint,
-        address[] memory _addressForBurn, uint[] memory _amountForBurn,
-        uint _totalTimeForVoting
-    )
-        public
-        inState(State.Created)
-        onlyStaff
-    {
-        require(1 days <=_totalTimeForVoting && _totalTimeForVoting <= 30 days, "error");
 
-        for (uint i; i < _addressForMint.length; i++) {
-            require(_addressForMint.length == _amountForMint.length, "error");
-            forMint[ _addressForMint[i] ] = _amountForMint[i];
-        }
-
-        for (uint i; i < _addressForBurn.length; i++) {
-            require(_addressForBurn.length == _amountForBurn.length, "error");
-
-            if(Token.balanceOf(_addressForBurn[i]) < _amountForBurn[i] ) {
-
-                string memory addr = Strings.toHexString(uint160(_addressForBurn[i]), 20);
-                revert(string.concat(
-                    "account ", addr, " has ", Token.balanceOf(_addressForBurn[i]).toString(), " tokens ",
-                    "but you want burn ", _amountForBurn[i].toString(), " tokens"));
-
-            } else {
-                forBurn[ _addressForBurn[i] ] = _amountForBurn[i];
-            }
-        }
-        addressesForMint = _addressForMint;
-        addressesForBurn = _addressForBurn;
-        votersAddresses.push(msg.sender);
-
-        totalVoters++;
-        votes[true] +=  Token.balanceOf(msg.sender);
-        wasVoted[msg.sender] = true;
-
-        startTime = block.timestamp;
-        endTime = _totalTimeForVoting + startTime;
-        state = State.Voting;
+    function getBallotNumber() public view returns (uint id) {
+        return ballotNumber;
     }
 
     function startAndSetupBallotMint
@@ -199,22 +161,22 @@ contract Ballot {
         inState(State.Created)
         onlyStaff
     {
-        require(1 days <=_totalTimeForVoting && _totalTimeForVoting <= 30 days, "error");
+        require(1 days <= _totalTimeForVoting && _totalTimeForVoting <= 30 days, "Ballot time shoud be in 1 month");
 
+        require(_addressForMint.length == _amountForMint.length, "number of addresses and amount shoud be equal");
         for (uint i; i < _addressForMint.length; i++) {
-            require(_addressForMint.length == _amountForMint.length, "error");
-            forMint[ _addressForMint[i] ] = _amountForMint[i];
+            forMint[getBallotNumber()][ _addressForMint[i] ] = _amountForMint[i];
         }
 
-        addressesForMint = _addressForMint;
-        votersAddresses.push(msg.sender);
+        addressesForMint[getBallotNumber()] = _addressForMint;
+        votersAddresses[getBallotNumber()].push(msg.sender);
 
-        totalVoters++;
-        votes[true] += Token.balanceOf(msg.sender);
-        wasVoted[msg.sender] = true;
+        totalVoters[getBallotNumber()]++;
+        votes[getBallotNumber()][true] += Token.balanceOf(msg.sender);
+        wasVoted[getBallotNumber()][msg.sender] = true;
 
-        startTime = block.timestamp;
-        endTime = _totalTimeForVoting + startTime;
+        startTime[getBallotNumber()] = block.timestamp;
+        endTime[getBallotNumber()] = _totalTimeForVoting + startTime[getBallotNumber()];
         state = State.Voting;
     }
 
@@ -227,10 +189,10 @@ contract Ballot {
         inState(State.Created)
         onlyStaff
     {
-        require(1 days <=_totalTimeForVoting && _totalTimeForVoting <= 30 days, "error");
+        require(1 days <= _totalTimeForVoting && _totalTimeForVoting <= 30 days, "Ballot time shoud be in 1 month");
 
+        require(_addressForBurn.length == _amountForBurn.length, "number of addresses and amount shoud be equal");
         for (uint i; i < _addressForBurn.length; i++) {
-            require(_addressForBurn.length == _amountForBurn.length, "error");
 
             if (Token.balanceOf(_addressForBurn[i]) < _amountForBurn[i]) {
 
@@ -239,76 +201,52 @@ contract Ballot {
                     "account ", addr, " has ", Token.balanceOf(_addressForBurn[i]).toString(), " tokens ",
                     "but you want burn ", _amountForBurn[i].toString(), " tokens"));
             } else {
-                forBurn[ _addressForBurn[i] ] = _amountForBurn[i];
+                forBurn[getBallotNumber()][ _addressForBurn[i] ] = _amountForBurn[i];
             }
         }
 
-        addressesForBurn = _addressForBurn;
-        votersAddresses.push(msg.sender);
+        addressesForBurn[getBallotNumber()] = _addressForBurn;
+        votersAddresses[getBallotNumber()].push(msg.sender);
 
-        totalVoters++;
-        votes[true] += Token.balanceOf(msg.sender);
-        wasVoted[msg.sender] = true;
+        totalVoters[getBallotNumber()]++;
+        votes[getBallotNumber()][true] += Token.balanceOf(msg.sender);
+        wasVoted[getBallotNumber()][msg.sender] = true;
 
-        startTime = block.timestamp;
-        endTime = _totalTimeForVoting + startTime;
+        startTime[getBallotNumber()] = block.timestamp;
+        endTime[getBallotNumber()] = _totalTimeForVoting + startTime[getBallotNumber()];
         state = State.Voting;
     }
 
-    function makeVote(bool choice) public inState(State.Voting) _wasVoted {
-        require(block.timestamp < endTime, "Ballot was finished");
-        wasVoted[msg.sender] = true;
+    function makeVote(bool choice) public inState(State.Voting) isFirstVote {
+        require(block.timestamp < endTime[getBallotNumber()], "Ballot was finished");
+        wasVoted[getBallotNumber()][msg.sender] = true;
 
-        totalVoters++;
-        votes[choice] += Token.balanceOf(msg.sender);
-        votersAddresses.push(msg.sender);
+        totalVoters[getBallotNumber()]++;
+        votes[getBallotNumber()][choice] += Token.balanceOf(msg.sender);
+        votersAddresses[getBallotNumber()].push(msg.sender);
     }
 
     function endVote() public inState(State.Voting) onlyOwner returns (bool) {
-        require(block.timestamp >= endTime, "Ballot still going");
+        require(block.timestamp >= endTime[getBallotNumber()], "Ballot still going");
         state = State.Ended;
 
-        if(votes[true] > votes[false]) {
-            if(addressesForMint.length > 0){
-                for(uint i; i < addressesForMint.length; i++) {
-                    Token.mint(addressesForMint[i], forMint[addressesForMint[i]]);
+        if(votes[getBallotNumber()][true] > votes[getBallotNumber()][false]) {
+            if(addressesForMint[getBallotNumber()].length > 0){
+                for(uint i; i < addressesForMint[getBallotNumber()].length; i++) {
+                    Token.mint(addressesForMint[getBallotNumber()][i], forMint[getBallotNumber()][addressesForMint[getBallotNumber()][i]]);
                 }
             }
-            if(addressesForBurn.length > 0){
-                for(uint i; i < addressesForBurn.length; i++) {
-                    Token.burn(addressesForBurn[i], forBurn[addressesForBurn[i]]);
+            if(addressesForBurn[getBallotNumber()].length > 0){
+                for(uint i; i < addressesForBurn[getBallotNumber()].length; i++) {
+                    Token.burn(addressesForBurn[getBallotNumber()][i], forBurn[getBallotNumber()][addressesForBurn[getBallotNumber()][i]]);
                 }
             }
         } else {
             return false;
         }
-        return true;
-    }
 
-    function resetBallot() public onlyOwner inState(State.Ended) {
-
-        for(uint i; i < addressesForMint.length; i++) {
-            delete forMint[addressesForMint[i]];
-        }
-
-        for(uint i; i < addressesForBurn.length; i++) {
-            delete forBurn[addressesForBurn[i]];
-        }
-
-        for(uint i; i < votersAddresses.length; i++) {
-            delete wasVoted[votersAddresses[i]];
-        }
-
-        delete votes[true];
-        delete votes[false];
-        delete addressesForBurn;
-        delete addressesForMint;
-        delete votersAddresses;
-        delete votingInitiator;
-        delete totalVoters;
-        delete startTime;
-        delete endTime;
-
+        ballotNumber++;
         state = State.Created;
+        return true;
     }
 }
