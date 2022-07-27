@@ -208,7 +208,8 @@ contract QaqadoRankToken is ERC20 {
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) public onlyStaff virtual override returns (bool) {
-        transferFrom(sender, recipient, amount);
+        super.transferFrom(sender, recipient, amount);
+        return true;
     }
 
     function totalSupply() public view virtual override returns (uint256) {

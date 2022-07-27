@@ -148,7 +148,7 @@ contract Ballot {
     }
 
 
-    function getBallotNumber() public view returns (uint id) {
+    function getBallotNumber() public view returns (uint) {
         return ballotNumber;
     }
 
@@ -161,7 +161,7 @@ contract Ballot {
         inState(State.Created)
         onlyStaff
     {
-        require(1 days <= _totalTimeForVoting && _totalTimeForVoting <= 30 days, "Ballot time shoud be in 1 month");
+        require(1 days <= _totalTimeForVoting && _totalTimeForVoting <= 30 days, "Ballot time should be in 1 month");
 
         require(_addressForMint.length == _amountForMint.length, "number of addresses and amount shoud be equal");
         for (uint i; i < _addressForMint.length; i++) {
@@ -189,7 +189,7 @@ contract Ballot {
         inState(State.Created)
         onlyStaff
     {
-        require(1 days <= _totalTimeForVoting && _totalTimeForVoting <= 30 days, "Ballot time shoud be in 1 month");
+        require(1 days <= _totalTimeForVoting && _totalTimeForVoting <= 30 days, "Ballot time should be in 1 month");
 
         require(_addressForBurn.length == _amountForBurn.length, "number of addresses and amount shoud be equal");
         for (uint i; i < _addressForBurn.length; i++) {
